@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dice Roll Attempts</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; }
+        #output { white-space: pre-line; margin-top: 20px; }
+        button { padding: 10px 20px; font-size: 16px; }
+        #money, #upgrades { margin-top: 10px; }
+        .upgrade-btn { margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Dice Roll Attempts</h2>
+    <button onclick="rollDice()">Roll Dice</button>
+    <button onclick="startAutoRoll()">Auto Roll</button>
+    <button onclick="stopAutoRoll()">Stop Auto</button>
+    <div id="money"></div>
+    <div id="upgrades"></div>
+    <div id="output"></div>
+
+    <script>
+        let attempts = 0;
+        let autoInterval = null;
+        let money = 0;
+        let upgrades = [
+            { 
+                name: "Double Reward", 
+                cost: 10, 
+                level: 0,
+                effect: function() { rewardMultiplier = 1 + this.level; },
+                costFunc: function() { return 10 * Math.pow(2, this.level); }
+            },
+            { 
+                name: "Faster Auto", 
+                cost: 25, 
+                level: 0,
+                effect: function() { 
+                    autoSpeed = Math.max(100, 1000 - this.level * 100); 
+                    restartAuto(); 
+                },
+                costFunc: function() { return 25 * Math.pow(2, this.level); }
+            }
+        ];
+        let rewardMultiplier = 1;
+        let autoSpeed = 1000;
+
+        function updateDisplay() {
+            document.getElementById('money').textContent = `Money: $${money}`;
+            let upgHtml = 'Upgrades: ';
+            upgrades.forEach((upg, i) => {
+                let nextCost = upg.costFunc();
+                upgHtml += `<button class="upgrade-btn" onclick="buyUpgrade(${i})" ${money < nextCost ? 'disabled' : ''}>${upg.name} (Lvl ${upg.level}) ($${nextCost})</button>`;
+            });
+            document.getElementById('upgrades').innerHTML = upgHtml;
+        }
+
+        function rollDice() {
+            let output = '';
+            let firstRoll = Math.floor(Math.random() * 5) + 1;
+            output += `First roll: ${firstRoll}\n`;
+            if (firstRoll === 5) {
+                let secondRoll = Math.floor(Math.random() * 5) + 1;
+                output += `Second roll: ${secondRoll}\n`;
+                if (secondRoll === 5) {
+                    attempts += 1;
+                    let earned = attempts * rewardMultiplier;
+                    money += earned;
+                    output += `Both rolls were 5! Attempts increased by 1. Earned $${earned}.\n`;
+                } else {
+                    attempts = Math.max(0, attempts - 1);
+                    output += "Second roll was not 5. Attempts decreased by 1.\n";
+                }
+            } else {
+                output += "First roll was not 5. No change to attempts.\n";
+            }
+            output += `Current attempts: ${attempts}\n`;
+            output += `Current money: $${money}\n`;
+            document.getElementById('output').textContent = output;
+            updateDisplay();
+        }
+
+        function startAutoRoll() {
+            if (autoInterval) return;
+            autoInterval = setInterval(rollDice, autoSpeed);
+        }
+
+        function stopAutoRoll() {
+            clearInterval(autoInterval);
+            autoInterval = null;
+        }
+
+        function restartAuto() {
+            stopAutoRoll();
+            startAutoRoll();
+        }
+
+        window.buyUpgrade = function(i) {
+            let upg = upgrades[i];
+            let nextCost = upg.costFunc();
+            if (money >= nextCost) {
+                money -= nextCost;
+                upg.level += 1;
+                upg.effect();
+                updateDisplay();
+            }
+        };
+
+        updateDisplay();
+    </script>
+</body>
+</html>
