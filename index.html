@@ -29,6 +29,7 @@
         <label>Attempts: <input type="number" id="adminAttempts"></label><br>
         <label>Money: <input type="number" id="adminMoney"></label><br>
         <div id="adminUpgrades"></div>
+        <div id="adminAdminOnly"></div>
         <button onclick="applyAdminChanges()">Apply Changes</button>
         <button onclick="hideAdminPanel()">Close</button>
     </div>
@@ -129,9 +130,32 @@
                 document.getElementById('adminMoney').value = money;
                 let upgHtml = '';
                 upgrades.forEach((upg, i) => {
-                    upgHtml += `<label>${upg.name} Level: <input type="number" id="adminUpg${i}" value="${upg.level}"></label><br>`;
+                    upgHtml += `<label>${upg.name} Level: <input type="number" id="adminUpg${i}" value="${upg.level}"></label>
+                    <button onclick="removeUpgrade(${i})" style="color:red;">Remove</button><br>`;
                 });
+                // Add rewardMultiplier and autoSpeed controls
+                upgHtml += `<label>Reward Multiplier: <input type="number" id="adminRewardMultiplier" value="${rewardMultiplier}" step="0.1"></label><br>`;
+                upgHtml += `<label>Auto Speed (ms): <input type="number" id="adminAutoSpeed" value="${autoSpeed}" min="100"></label><br>`;
                 document.getElementById('adminUpgrades').innerHTML = upgHtml;
+
+                // Admin Only: Add new upgrade
+                let adminOnlyHtml = `
+                    <h4>Admin Only: Add New Upgrade</h4>
+                    <label>Name: <input type="text" id="newUpgradeName"></label><br>
+                    <label>Base Cost: <input type="number" id="newUpgradeCost" value="10"></label><br>
+                    <label>Effect JS (function body):<br>
+                        <textarea id="newUpgradeEffect" rows="2" cols="40">alert('Upgrade effect!');</textarea>
+                    </label><br>
+                    <label>Cost Function JS (function body, use 'this.level'):<br>
+                        <textarea id="newUpgradeCostFunc" rows="2" cols="40">return 10 * Math.pow(2, this.level);</textarea>
+                    </label><br>
+                    <button onclick="addUpgrade()">Add Upgrade</button>
+                `;
+                document.getElementById('adminAdminOnly').innerHTML = adminOnlyHtml;
+
+                // Set rewardMultiplier and autoSpeed fields if present
+                document.getElementById('adminRewardMultiplier').value = rewardMultiplier;
+                document.getElementById('adminAutoSpeed').value = autoSpeed;
             } else {
                 alert("Incorrect code.");
             }
@@ -149,8 +173,41 @@
                 upg.level = newLevel;
                 upg.effect();
             });
+            // Apply rewardMultiplier and autoSpeed
+            rewardMultiplier = parseFloat(document.getElementById('adminRewardMultiplier').value) || 1;
+            autoSpeed = Math.max(100, parseInt(document.getElementById('adminAutoSpeed').value) || 1000);
+            upgrades.forEach(upg => upg.effect());
             updateDisplay();
             hideAdminPanel();
+        };
+
+        // Admin Only: Add new upgrade
+        window.addUpgrade = function() {
+            const name = document.getElementById('newUpgradeName').value || 'Custom Upgrade';
+            const baseCost = parseInt(document.getElementById('newUpgradeCost').value) || 10;
+            const effectBody = document.getElementById('newUpgradeEffect').value;
+            const costFuncBody = document.getElementById('newUpgradeCostFunc').value;
+
+            // Create new upgrade object
+            const newUpgrade = {
+                name: name,
+                cost: baseCost,
+                level: 0,
+                effect: new Function(effectBody),
+                costFunc: new Function(costFuncBody)
+            };
+            upgrades.push(newUpgrade);
+            updateDisplay();
+            showAdminPanel(); // Refresh panel
+        };
+
+        // Admin Only: Remove upgrade
+        window.removeUpgrade = function(i) {
+            if (confirm('Remove this upgrade?')) {
+                upgrades.splice(i, 1);
+                updateDisplay();
+                showAdminPanel(); // Refresh panel
+            }
         };
 
         updateDisplay();
