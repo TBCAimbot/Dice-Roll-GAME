@@ -35,36 +35,45 @@
     </div>
 
     <script>
-        let attempts = 0;
-        let autoInterval = null;
-        let money = 0;
-        let upgrades = [
-            { 
-                name: "Double Reward", 
-                cost: 10, 
-                level: 0,
-                effect: function() { rewardMultiplier = 1 + this.level; },
-                costFunc: function() { return 10 * Math.pow(2, this.level); }
-            },
-            { 
-                name: "Faster Auto", 
-                cost: 25, 
-                level: 0,
-                effect: function() { 
-                    autoSpeed = Math.max(100, 1000 - this.level * 100); 
-                    restartAuto(); 
-                },
-                costFunc: function() { return 25 * Math.pow(2, this.level); }
-            }
+        const ADMIN_CODE = "123456789";
+
+        const upgradeTypes = [
+            { name: "Double Reward", baseCost: 10 },
+            { name: "Faster Auto", baseCost: 25 }
         ];
+
+        const upgradeEffects = [
+            function() { rewardMultiplier = 1 + this.level; },
+            function() { autoSpeed = Math.max(100, 1000 - this.level * 100); restartAuto(); }
+        ];
+        const upgradeCostFuncs = [
+            function() { return 10 * Math.pow(2, this.level); },
+            function() { return 25 * Math.pow(2, this.level); }
+        ];
+
+        let upgrades = upgradeTypes.map((type, i) => ({
+            name: type.name,
+            cost: type.baseCost,
+            level: 0,
+            effect: upgradeEffects[i],
+            costFunc: upgradeCostFuncs[i]
+        }));
         let rewardMultiplier = 1;
         let autoSpeed = 1000;
 
+        let attempts = 0;
+        let money = 0;
+        let autoInterval = null;
+
+        let bestAttempts = 0;
+        let currentStreak = 0;
+        let bestStreak = 0;
+
         function updateDisplay() {
-            document.getElementById('money').textContent = `Money: $${money}`;
+            document.getElementById('money').textContent = `Money: $${money} | Best Attempts: ${bestAttempts} | Best Streak: ${bestStreak}`;
             let upgHtml = 'Upgrades: ';
             upgrades.forEach((upg, i) => {
-                let nextCost = upg.costFunc();
+                let nextCost = upg.costFunc.call(upg);
                 upgHtml += `<button class="upgrade-btn" onclick="buyUpgrade(${i})" ${money < nextCost ? 'disabled' : ''}>${upg.name} (Lvl ${upg.level}) ($${nextCost})</button>`;
             });
             document.getElementById('upgrades').innerHTML = upgHtml;
@@ -81,16 +90,24 @@
                     attempts += 1;
                     let earned = attempts * rewardMultiplier;
                     money += earned;
+                    currentStreak += 1;
+                    bestStreak = Math.max(bestStreak, currentStreak);
+                    bestAttempts = Math.max(bestAttempts, attempts);
+
                     output += `Both rolls were 5! Attempts increased by 1. Earned $${earned}.\n`;
                 } else {
                     attempts = Math.max(0, attempts - 1);
+                    currentStreak = 0;
                     output += "Second roll was not 5. Attempts decreased by 1.\n";
                 }
             } else {
+                currentStreak = 0;
                 output += "First roll was not 5. No change to attempts.\n";
             }
             output += `Current attempts: ${attempts}\n`;
             output += `Current money: $${money}\n`;
+            output += `Best attempts reached: ${bestAttempts}\n`;
+            output += `Best consecutive success streak: ${bestStreak}\n`;
             document.getElementById('output').textContent = output;
             updateDisplay();
         }
@@ -112,48 +129,53 @@
 
         window.buyUpgrade = function(i) {
             let upg = upgrades[i];
-            let nextCost = upg.costFunc();
+            let nextCost = upg.costFunc.call(upg);
             if (money >= nextCost) {
                 money -= nextCost;
                 upg.level += 1;
-                upg.effect();
+                upg.effect.call(upg);
                 updateDisplay();
             }
         };
 
-        // Admin panel functions
         window.showAdminPanel = function() {
             const code = prompt("Enter admin code:");
-            if (code === "123456789") {
+            if (code === ADMIN_CODE) {
                 document.getElementById('adminPanel').style.display = 'block';
                 document.getElementById('adminAttempts').value = attempts;
                 document.getElementById('adminMoney').value = money;
+
                 let upgHtml = '';
                 upgrades.forEach((upg, i) => {
                     upgHtml += `<label>${upg.name} Level: <input type="number" id="adminUpg${i}" value="${upg.level}"></label>
-                    <button onclick="removeUpgrade(${i})" style="color:red;">Remove</button><br>`;
+<button onclick="removeUpgrade(${i})" style="color:red;">Remove</button><br>`;
                 });
-                // Add rewardMultiplier and autoSpeed controls
-                upgHtml += `<label>Reward Multiplier: <input type="number" id="adminRewardMultiplier" value="${rewardMultiplier}" step="0.1"></label><br>`;
-                upgHtml += `<label>Auto Speed (ms): <input type="number" id="adminAutoSpeed" value="${autoSpeed}" min="100"></label><br>`;
-                document.getElementById('adminUpgrades').innerHTML = upgHtml;
 
-                // Admin Only: Add new upgrade
-                let adminOnlyHtml = `
-                    <h4>Admin Only: Add New Upgrade</h4>
-                    <label>Name: <input type="text" id="newUpgradeName"></label><br>
-                    <label>Base Cost: <input type="number" id="newUpgradeCost" value="10"></label><br>
-                    <label>Effect JS (function body):<br>
-                        <textarea id="newUpgradeEffect" rows="2" cols="40">alert('Upgrade effect!');</textarea>
-                    </label><br>
-                    <label>Cost Function JS (function body, use 'this.level'):<br>
-                        <textarea id="newUpgradeCostFunc" rows="2" cols="40">return 10 * Math.pow(2, this.level);</textarea>
-                    </label><br>
-                    <button onclick="addUpgrade()">Add Upgrade</button>
-                `;
+                let adminOnlyHtml = '';
+                adminOnlyHtml += '<h4>Upgrades</h4>';
+                adminOnlyHtml += upgHtml;
+                adminOnlyHtml += '<h4>Controls</h4>';
+                adminOnlyHtml += `<label>Reward Multiplier: <input type="number" id="adminRewardMultiplier" value="${rewardMultiplier}" step="0.1"></label><br>`;
+                adminOnlyHtml += `<label>Auto Speed (ms): <input type="number" id="adminAutoSpeed" value="${autoSpeed}" min="100"></label><br>`;
+                adminOnlyHtml += `<label>Best Attempts: <input type="number" id="adminBestAttempts" value="${bestAttempts}" min="0"></label><br>`;
+
+                adminOnlyHtml += '<h4>Add Custom Upgrade</h4>';
+                adminOnlyHtml += '<label>Name: <input type="text" id="newUpgradeName" value="Custom Upgrade"></label><br>';
+                adminOnlyHtml += '<label>Effect Type:<br>';
+                adminOnlyHtml += '<select id="newUpgradeEffectType">';
+                adminOnlyHtml += '<option value="rewardMultiplier">Increase Reward Multiplier</option>';
+                adminOnlyHtml += '<option value="autoSpeed">Increase Auto Speed</option>';
+                adminOnlyHtml += '</select></label><br>';
+                adminOnlyHtml += '<label>Cost Scaling:<br>';
+                adminOnlyHtml += '<select id="newUpgradeCostType">';
+                adminOnlyHtml += '<option value="linear">Linear (baseCost * (level+1))</option>';
+                adminOnlyHtml += '<option value="exponential">Exponential (baseCost * 2^level)</option>';
+                adminOnlyHtml += '</select></label><br>';
+                adminOnlyHtml += '<label>Base Cost: <input type="number" id="newUpgradeCost" value="10"></label><br>';
+                adminOnlyHtml += '<button onclick="addUpgrade()">Add Upgrade</button>';
+
                 document.getElementById('adminAdminOnly').innerHTML = adminOnlyHtml;
 
-                // Set rewardMultiplier and autoSpeed fields if present
                 document.getElementById('adminRewardMultiplier').value = rewardMultiplier;
                 document.getElementById('adminAutoSpeed').value = autoSpeed;
             } else {
@@ -169,44 +191,65 @@
             attempts = parseInt(document.getElementById('adminAttempts').value) || 0;
             money = parseInt(document.getElementById('adminMoney').value) || 0;
             upgrades.forEach((upg, i) => {
-                let newLevel = parseInt(document.getElementById(`adminUpg${i}`).value) || 0;
-                upg.level = newLevel;
-                upg.effect();
+                let el = document.getElementById(`adminUpg${i}`);
+                if (el) {
+                    let newLevel = parseInt(el.value) || 0;
+                    upg.level = newLevel;
+                    upg.effect.call(upg);
+                }
             });
-            // Apply rewardMultiplier and autoSpeed
-            rewardMultiplier = parseFloat(document.getElementById('adminRewardMultiplier').value) || 1;
-            autoSpeed = Math.max(100, parseInt(document.getElementById('adminAutoSpeed').value) || 1000);
-            upgrades.forEach(upg => upg.effect());
+
+            let rmEl = document.getElementById('adminRewardMultiplier');
+            let asEl = document.getElementById('adminAutoSpeed');
+            if (rmEl) rewardMultiplier = parseFloat(rmEl.value) || 1;
+            if (asEl) autoSpeed = Math.max(100, parseInt(asEl.value) || 1000);
+
+            let baEl = document.getElementById('adminBestAttempts');
+            if (baEl) bestAttempts = Math.max(0, parseInt(baEl.value) || 0);
+
             updateDisplay();
-            hideAdminPanel();
+            restartAuto();
         };
 
-        // Admin Only: Add new upgrade
         window.addUpgrade = function() {
             const name = document.getElementById('newUpgradeName').value || 'Custom Upgrade';
             const baseCost = parseInt(document.getElementById('newUpgradeCost').value) || 10;
-            const effectBody = document.getElementById('newUpgradeEffect').value;
-            const costFuncBody = document.getElementById('newUpgradeCostFunc').value;
+            const effectType = document.getElementById('newUpgradeEffectType').value;
+            const costType = document.getElementById('newUpgradeCostType').value;
 
-            // Create new upgrade object
+            let effect;
+            if (effectType === "rewardMultiplier") {
+                effect = function() { rewardMultiplier += 1; };
+            } else if (effectType === "autoSpeed") {
+                effect = function() { autoSpeed = Math.max(100, autoSpeed - 100); restartAuto(); };
+            } else {
+                effect = function() {};
+            }
+
+            let costFunc;
+            if (costType === "linear") {
+                costFunc = function() { return baseCost * (this.level + 1); };
+            } else {
+                costFunc = function() { return baseCost * Math.pow(2, this.level); };
+            }
+
             const newUpgrade = {
                 name: name,
                 cost: baseCost,
                 level: 0,
-                effect: new Function(effectBody),
-                costFunc: new Function(costFuncBody)
+                effect: effect,
+                costFunc: costFunc
             };
             upgrades.push(newUpgrade);
             updateDisplay();
-            showAdminPanel(); // Refresh panel
+            showAdminPanel();
         };
 
-        // Admin Only: Remove upgrade
         window.removeUpgrade = function(i) {
             if (confirm('Remove this upgrade?')) {
                 upgrades.splice(i, 1);
                 updateDisplay();
-                showAdminPanel(); // Refresh panel
+                showAdminPanel();
             }
         };
 
