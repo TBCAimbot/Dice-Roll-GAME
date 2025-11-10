@@ -383,8 +383,7 @@
                     borderRadius: '10px',
                     boxShadow: '0 10px 30px rgba(2,6,23,0.6)',
                     zIndex: 9999,
-                    fontSize: '13px',
-                    opacity: '1',
+                    fontSize: '13px'
                 });
                 document.body.appendChild(t);
                 setTimeout(() => { t.style.transition = 'opacity .35s'; t.style.opacity = '0'; }, ms);
@@ -413,7 +412,7 @@
                     rewardMultiplier = s.rewardMultiplier || rewardMultiplier;
                     autoSpeed = s.autoSpeed || autoSpeed;
                     (s.upgrades || []).forEach((lvl, i) => { if (upgrades[i]) upgrades[i].level = lvl; });
-                    upgrades.forEach(u => { if (u.effect) u.effect.call(u); });
+                    upgrades.forEach(u => u.effect && u.effect.call(u));
                 } catch (e) { /* ignore */ }
             }
 
@@ -454,9 +453,6 @@
             window.addEventListener('blur', () => {
                 if (autoInterval) { stopAutoRoll(); toast('Auto stopped (lost focus)'); }
             });
-
-            // save on unload
-            window.addEventListener('beforeunload', saveState);
 
             // load state and refresh UI on start
             loadState();
