@@ -4,13 +4,127 @@
     <meta charset="UTF-8">
     <title>Dice Roll Attempts</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 30px; }
-        #output { white-space: pre-line; margin-top: 20px; }
-        button { padding: 10px 20px; font-size: 16px; }
-        #money, #upgrades { margin-top: 10px; }
-        .upgrade-btn { margin-right: 10px; }
-        /* Admin panel styles */
-        #adminPanel { display:none; border:1px solid #888; padding:15px; margin-top:20px; background:#f9f9f9; }
+        :root{
+            --bg-1:#0f1724;
+            --bg-2:#071022;
+            --card: rgba(255,255,255,0.04);
+            --glass: rgba(255,255,255,0.03);
+            --accent-1: #6EE7B7;
+            --accent-2: #34D399;
+            --muted: #9fb0bd;
+            --ui-radius:12px;
+            --shadow: 0 8px 30px rgba(2,6,23,0.6);
+            --glass-border: rgba(255,255,255,0.04);
+        }
+
+        *{box-sizing:border-box}
+        html,body{height:100%;margin:0;font-family:Inter, "Segoe UI", Roboto, Arial, sans-serif;background:
+            radial-gradient(1200px 600px at 10% 10%, rgba(52,211,153,0.06), transparent 10%),
+            linear-gradient(180deg,var(--bg-1),var(--bg-2));color:#e6f3f5;-webkit-font-smoothing:antialiased;}
+
+        h2{color:#eaf7f0;margin:0 0 14px 0}
+
+        /* Main layout */
+        body { padding: 28px; }
+        button { cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; border:0; outline:0; }
+        button:active{transform:translateY(1px) scale(.998)}
+
+        /* Top controls and info */
+        #money {
+            display:inline-block;
+            padding:10px 14px;
+            background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            border-radius:10px;
+            border:1px solid var(--glass-border);
+            box-shadow: var(--shadow);
+            color:var(--muted);
+            font-weight:600;
+            margin-bottom:12px;
+        }
+
+        /* Buttons look */
+        button {
+            background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+            color: #e9fbf2;
+            padding:10px 14px;
+            border-radius:10px;
+            font-weight:600;
+            box-shadow: 0 6px 18px rgba(2,6,23,0.45), inset 0 -1px 0 rgba(255,255,255,0.01);
+        }
+        button:hover{
+            box-shadow: 0 10px 26px rgba(2,6,23,0.55), 0 0 0 4px rgba(52,211,153,0.04);
+            transform:translateY(-2px);
+        }
+        button.primary{
+            background: linear-gradient(90deg,var(--accent-1),var(--accent-2));
+            color:#042018;
+            box-shadow: 0 8px 30px rgba(52,211,153,0.12);
+        }
+
+        /* Upgrades area */
+        #upgrades{
+            margin-top:10px;
+            display:flex;
+            gap:8px;
+            flex-wrap:wrap;
+        }
+        .upgrade-btn{
+            padding:8px 12px;
+            border-radius:10px;
+            background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            border:1px solid rgba(255,255,255,0.02);
+            color:var(--muted);
+            font-weight:700;
+            cursor:pointer;
+        }
+        .upgrade-btn:hover{box-shadow:0 8px 18px rgba(2,6,23,0.45); color:#dffbf0}
+
+        /* Output box */
+        #output{
+            margin-top:18px;
+            padding:14px;
+            border-radius:12px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+            border:1px solid var(--glass-border);
+            color:#d8f7ea;
+            max-width:860px;
+            white-space:pre-line;
+            box-shadow: var(--shadow);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+            line-height:1.45;
+        }
+
+        /* Admin panel - glass card */
+        #adminPanel{
+            display:none;
+            margin-top:18px;
+            padding:18px;
+            border-radius:14px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            border: 1px solid rgba(255,255,255,0.04);
+            box-shadow: 0 18px 50px rgba(2,6,23,0.6);
+            max-width:860px;
+        }
+        #adminPanel h3{margin-top:0;color:#e8fdf0}
+
+        /* Inputs */
+        input[type="number"], input[type="text"], select {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.03);
+            color: #e6f8ef;
+            padding:8px 10px;
+            border-radius:8px;
+            margin:4px 0 10px 0;
+        }
+
+        label{color:var(--muted);font-size:14px}
+
+        /* Small screens */
+        @media (max-width:720px){
+            body{padding:14px}
+            #output, #adminPanel{max-width:100%}
+            button{padding:8px 10px}
+        }
     </style>
 </head>
 <body>
@@ -253,7 +367,103 @@
             }
         };
 
-        updateDisplay();
+        // New JS: small UX improvements, persistence, keyboard shortcuts and animated money
+        (function () {
+            // toast helper
+            function toast(msg, ms = 1400) {
+                const t = document.createElement('div');
+                t.textContent = msg;
+                Object.assign(t.style, {
+                    position: 'fixed',
+                    right: '20px',
+                    bottom: '20px',
+                    background: 'linear-gradient(90deg, rgba(6,22,18,0.9), rgba(18,34,30,0.9))',
+                    color: '#dffef0',
+                    padding: '8px 12px',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 30px rgba(2,6,23,0.6)',
+                    zIndex: 9999,
+                    fontSize: '13px',
+                    opacity: '1',
+                });
+                document.body.appendChild(t);
+                setTimeout(() => { t.style.transition = 'opacity .35s'; t.style.opacity = '0'; }, ms);
+                setTimeout(() => t.remove(), ms + 400);
+            }
+
+            // persist / restore game state
+            function saveState() {
+                try {
+                    const state = {
+                        money, attempts, bestAttempts, bestStreak,
+                        upgrades: upgrades.map(u => u.level),
+                        rewardMultiplier, autoSpeed
+                    };
+                    localStorage.setItem('dice_state_v1', JSON.stringify(state));
+                } catch (e) { /* ignore */ }
+            }
+            function loadState() {
+                try {
+                    const s = JSON.parse(localStorage.getItem('dice_state_v1') || 'null');
+                    if (!s) return;
+                    money = s.money || 0;
+                    attempts = s.attempts || 0;
+                    bestAttempts = s.bestAttempts || 0;
+                    bestStreak = s.bestStreak || 0;
+                    rewardMultiplier = s.rewardMultiplier || rewardMultiplier;
+                    autoSpeed = s.autoSpeed || autoSpeed;
+                    (s.upgrades || []).forEach((lvl, i) => { if (upgrades[i]) upgrades[i].level = lvl; });
+                    upgrades.forEach(u => { if (u.effect) u.effect.call(u); });
+                } catch (e) { /* ignore */ }
+            }
+
+            // animated money display
+            let displayedMoney = 0;
+            function animateMoneyTo(target) {
+                const el = document.getElementById('money');
+                const start = displayedMoney;
+                const dur = 450;
+                const t0 = performance.now();
+                function frame(t) {
+                    const p = Math.min(1, (t - t0) / dur);
+                    displayedMoney = Math.round(start + (target - start) * p);
+                    el.textContent = `Money: $${displayedMoney} | Best Attempts: ${bestAttempts} | Best Streak: ${bestStreak}`;
+                    if (p < 1) requestAnimationFrame(frame);
+                }
+                requestAnimationFrame(frame);
+            }
+
+            // wrap and augment existing updateDisplay
+            const originalUpdate = updateDisplay;
+            updateDisplay = function () {
+                originalUpdate();
+                animateMoneyTo(money);
+                saveState();
+            };
+
+            // keyboard shortcuts: R roll, A start auto, S stop auto, P toggle admin
+            document.addEventListener('keydown', (ev) => {
+                if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA')) return;
+                if (ev.key === 'r') { rollDice(); toast('Rolled'); }
+                if (ev.key === 'a') { startAutoRoll(); toast('Auto started'); }
+                if (ev.key === 's') { stopAutoRoll(); toast('Auto stopped'); }
+                if (ev.key === 'p') { document.getElementById('adminBtn')?.click(); }
+            });
+
+            // safety: stop auto when window loses focus
+            window.addEventListener('blur', () => {
+                if (autoInterval) { stopAutoRoll(); toast('Auto stopped (lost focus)'); }
+            });
+
+            // save on unload
+            window.addEventListener('beforeunload', saveState);
+
+            // load state and refresh UI on start
+            loadState();
+            displayedMoney = money;
+            updateDisplay();
+            toast('Welcome — state restored');
+        })();
     </script>
 </body>
 </html>
